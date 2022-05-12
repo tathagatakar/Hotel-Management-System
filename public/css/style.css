@@ -1,0 +1,41 @@
+.navbar{
+    margin-bottom: 25px;
+}
+#testimonials{
+    margin: 25px;
+    text-align: center;
+    padding: 25px;
+}
+
+.testimonials-image{
+    width: 65%;
+    padding: 25px;
+}
+
+.features-image{
+    width: 45%;
+    text-align: center;
+    border-radius: 100%;
+}
+
+.about-us-image{
+    width: 90%;
+}
+
+.social{
+    width:100%;
+}
+
+.col-lg-6{
+    padding: 20px;
+}
+
+
+
+.col-md-3{
+    padding: 20px;
+}
+
+.services{
+    padding: 20px;
+}
