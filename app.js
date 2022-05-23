@@ -24,12 +24,25 @@ mongoose.connect("mongodb://localhost:27017/hmsDB", {useNewUrlParser: true});
 const customerSchema = {
     name: String,
     email: String,
-    password: String,
+    password: String
 };
 
-
-
 const Customer = mongoose.model("Customer", customerSchema);
+
+const roomSchema = {
+    roomNo: Number,
+    capacity: Number,
+    type: String,
+    price: Number,
+    checkIn: Date,
+    checkOut: Date,
+    available: Boolean,
+    rating: Number
+};
+
+const Room = mongoose.model("room", roomSchema);
+
+
 
 app.get('/', (req, res)=>{
     res.render('index');
@@ -149,5 +162,24 @@ app.post('/login', (req, res)=>{
         })
     }  
 })
+
+
+app.get('/book', (req, res)=>{
+    res.render('book');
+})
+
+app.post('/book', (req, res)=>{
+    const person = req.body.quantity;
+    const type = req.body.roomType;
+    const date1 = req.body.checkInDate;
+    const date2 = req.body.checkOutDate;
+    
+
+    res.redirect('/book');
+})
+
+
+
+
 
 app.listen(process.env.PORT || 5000);
