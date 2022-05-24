@@ -165,15 +165,30 @@ app.post('/login', (req, res)=>{
 
 
 app.get('/book', (req, res)=>{
-    res.render('book');
-})
+    
+    Room.find({}, function(err, roomDetails){
+        if (err){
+            return handleError(err);
+        } else{
+            res.render('book', {capa1:roomDetails[0].capacity, price1:roomDetails[0].price, type1:roomDetails[0].type, rating1:roomDetails[0].rating,
+                capa2:roomDetails[1].capacity, price2:roomDetails[1].price, type2:roomDetails[1].type, rating2:roomDetails[1].rating,
+                capa3:roomDetails[2].capacity, price3:roomDetails[2].price, type3:roomDetails[2].type, rating3:roomDetails[2].rating,
+                capa4:roomDetails[3].capacity, price4:roomDetails[3].price, type4:roomDetails[3].type, rating4:roomDetails[3].rating,
+                capa5:roomDetails[4].capacity, price5:roomDetails[4].price, type5:roomDetails[4].type, rating5:roomDetails[4].rating,
+                capa6:roomDetails[5].capacity, price6:roomDetails[5].price, type6:roomDetails[5].type, rating6:roomDetails[5].rating,
+                capa7:roomDetails[6].capacity, price7:roomDetails[6].price, type7:roomDetails[6].type, rating7:roomDetails[6].rating,
+                capa8:roomDetails[7].capacity, price8:roomDetails[7].price, type8:roomDetails[7].type, rating8:roomDetails[7].rating,
+                capa9:roomDetails[8].capacity, price9:roomDetails[8].price, type9:roomDetails[8].type, rating9:roomDetails[8].rating,
+            });
+        }});
+    
+});
 
 app.post('/book', (req, res)=>{
     const person = req.body.quantity;
     const type = req.body.roomType;
     const date1 = req.body.checkInDate;
     const date2 = req.body.checkOutDate;
-    
 
     res.redirect('/book');
 })
@@ -182,4 +197,4 @@ app.post('/book', (req, res)=>{
 
 
 
-app.listen(process.env.PORT || 5000);
+app.listen(process.env.PORT || 3000);
