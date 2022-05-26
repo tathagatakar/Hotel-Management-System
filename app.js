@@ -7,9 +7,7 @@ const session = require('express-session')
 const app = express();
 
 app.set("view engine", "ejs");
-app.use(bodyParser.urlencoded({
-    extended: false
-}));
+app.use(bodyParser.urlencoded({extended: false}));
 app.use(express.static("public"));
 app.use(bodyParser.json())
 app.use(cookieParser('secret'))
@@ -25,32 +23,13 @@ app.use((req, res, next) => {
     next()
 })
 
-mongoose.connect("mongodb://localhost:27017/hmsDB", {
-    useNewUrlParser: true
-});
+mongoose.connect("mongodb://localhost:27017/hmsDB", {useNewUrlParser: true});
 
-const customerSchema = {
-    name: String,
-    email: String,
-    password: String
-};
-
+const customerSchema = {name: String, email: String, password: String};
 const Customer = mongoose.model("Customer", customerSchema);
 
-const roomSchema = {
-    roomNo: Number,
-    capacity: Number,
-    type: String,
-    price: Number,
-    checkIn: Date,
-    checkOut: Date,
-    available: Boolean,
-    rating: Number
-};
-
+const roomSchema = {roomNo: Number, capacity: Number, price: Number, rating: Number, orderDetails: [{ customerId: String, checkIn: Date, checkOut: Date}]};
 const Room = mongoose.model("room", roomSchema);
-
-
 
 app.get('/', (req, res) => {
     res.render('index');
@@ -61,7 +40,6 @@ app.get('/signup', (req, res) => {
 })
 
 app.post('/signup', (req, res) => {
-
     const cName = req.body.name;
     const cEmail = req.body.email;
     const cPassword = req.body.password;
@@ -111,9 +89,6 @@ app.post('/signup', (req, res) => {
             }
         })
     }
-
-
-
 });
 
 app.get('/login', (req, res) => {
@@ -143,7 +118,7 @@ app.post('/login', (req, res) => {
                             intro: 'Succesfully logged in! ',
                             message: 'Enjoy.'
                         }
-                        res.redirect('/login');
+                        res.redirect('/book');
                     } else {
                         req.session.message = {
                             type: 'warning',
@@ -166,47 +141,48 @@ app.post('/login', (req, res) => {
     }
 })
 
-
 app.get('/book', (req, res) => {
 
     Room.find({}, function (err, roomDetails) {
         if (err) {
             return handleError(err);
         } else {
-            res.render('book', {roomDetails:roomDetails});
+            res.render('book', {
+                roomDetails: roomDetails
+            });
         }
     });
 
 });
 
 app.post('/book', (req, res) => {
-    const person = req.body.quantity;
+    const capacity = req.body.quantity;
     const date1 = req.body.checkInDate.toString();
     const date2 = req.body.checkOutDate.toString();
-
     const d1 = new Date(date1).toISOString();
     const d2 = new Date(date2).toISOString();
+    var result = []
 
-    Room.find({ 'capacity': 2, $or: [{$and: [{'checkIN': {$gt:d1 }}, {'checkIn':{$gt:d2}}]}, {$and: [{'checkOut': {$lt:d1 }}, {'checkOut':{$lt:d2}}]}]  }, 'roomNo', function(err, searchResult) {
-        if (err){
+    Room.find({'capacity': capacity}, 'roomNo price rating capacity orderDetails', function (err, searchResult) {
+        if (err)
             return handleError(err);
-        } else{
-            if (searchResult){
-                console.log(searchResult);
-            } 
-            else {
-                console.log("No such room available right now");
-            }
-        }
-        
+        else {
+            for (var i = 0; i < searchResult.length; i++) {
+                var count = 0;
+                for (var j = 0; j < searchResult[i].orderDetails.length; j++) 
+                    if (!((d1 < searchResult[i].orderDetails[j].checkIn.toISOString() && d2 < searchResult[i].orderDetails[j].checkIn.toISOString()) || (d1 > searchResult[i].orderDetails[j].checkOut.toISOString() && d2 > searchResult[i].orderDetails[j].checkOut.toISOString()))) count += 1;
+                
+                if (count != 0)
+                    result.push({roomNo: searchResult[i].roomNo, price: searchResult[i].price, rating: searchResult[i].rating, capacity: searchResult[i].capacity});
+                }}
+    console.log(result);
+    res.render('search', {result: result});
     })
-    res.redirect('/book');
 })
-
 
 app.get('/search', (req, res) => {
-    res.render('search');
+    var def = []
+    res.render('search', {result: def});
 })
-
 
 app.listen(process.env.PORT || 3000);

@@ -34,7 +34,7 @@
                     <form action="" method="post">
                         <div class="mb-4">
                             <label for="adultCount">Persons including children (min 2, max 4): </label>
-                            <input type="number" id="quantity" name="quantity" min="1" max="4"> <br>
+                            <input type="number" id="quantity" name="quantity" min="2" max="4"> <br>
                         </div>
 
                         <div class="mb-4">
@@ -57,49 +57,38 @@
         </section>
 
         <div class="album py-5 bg-light">
-            <div class="container"> <h3>Browse All the Rooms:</h3>
+            <div class="container">
+                <h3>Browse All the Rooms:</h3>
 
 
                 <div class="row">
-                    <% for(var i=0; i<roomDetails.length; i++) { %>
-                    <div class="col-4">
-                        <% if (roomDetails[i].available===true) { %>
-                        <div class="card shadow-sm" style="border: 2px solid green;">
-                            <% } else { %>
-                            <div class="card shadow-sm" style="border: 2px solid red;">
-                                <% } %>
-                                <svg class="bd-placeholder-img card-img-top" width="100%" height="225"
-                                    xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Placeholder: Thumbnail"
-                                    preserveAspectRatio="xMidYMid slice" focusable="false">
-                                    <title>Placeholder</title>
-                                    <rect width="100%" height="100%" fill="#55595c" /><text x="50%" y="50%"
-                                        fill="#eceeef" dy=".3em">Room <%= roomDetails[i].roomNo %></text>
-                                </svg>
+                    <% for (var i=0; i<roomDetails.length; i++) { %>
+                    <div class="col-3">
+                        <div class="card shadow-sm">
+                            <svg class="bd-placeholder-img card-img-top" width="100%" height="225"
+                                xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Placeholder: Thumbnail"
+                                preserveAspectRatio="xMidYMid slice" focusable="false">
+                                <title>Placeholder</title>
+                                <rect width="100%" height="100%" fill="#55595c" /><text x="7%" y="50%" fill="#eceeef"
+                                    dy=".3em">Room <%= roomDetails[i].roomNo %></text>
+                            </svg>
 
-                                <div class="card-body">
-                                    <p class="card-text">Capacity: <%= roomDetails[i].capacity %></p>
-                                    <p class="card-text">Type: <%= roomDetails[i].type %></p>
-                                    <p class="card-text">Price: <%= roomDetails[i].price %>/-</p>
-                                    <div class="d-flex justify-content-between align-items-center">
-                                        <div class="btn-group">
-
-                                            <% if (roomDetails[i].available===true) { %>
-                                            <button type="button" class="btn btn-success">Book Now</button>
-                                            <% } else { %>
-                                            <button type="button" class="btn btn-danger">Book Now</button>
-
-                                            <% } %>
-                                        </div>
-                                        <small class="text-muted"><%= roomDetails[i].rating %> stars</small>
+                            <div class="card-body">
+                                <p class="card-text">Capacity: <%= roomDetails[i].capacity %></p>
+                                <p class="card-text">Price: <%= roomDetails[i].price %>/-</p>
+                                <div class="d-flex justify-content-between align-items-center">
+                                    <div class="btn-group">
+                                        <button type="button" class="btn btn-info">Book Now</button>
                                     </div>
+                                    <small class="text-muted"><%= roomDetails[i].rating %> stars</small>
                                 </div>
                             </div>
-                        </div>
-                        <br>
-                        <% } %>
+                        </div> <br>
                     </div>
+                    <% } %>
                 </div>
             </div>
+        </div>
         </div>
     </main>
 
@@ -123,4 +112,5 @@
         integrity="sha384-JZR6Spejh4U02d8jOt6vLEHfe/JQGiRRSQQxSfFWpi1MquVdAyjUar5+76PVCmYl" crossorigin="anonymous">
     </script>
 </body>
+
 </html>
