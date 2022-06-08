@@ -3,6 +3,13 @@ const bodyParser = require("body-parser");
 const mongoose = require("mongoose");
 const cookieParser = require('cookie-parser')
 const session = require('express-session')
+//const Razorpay = require('razorpay');
+
+if (typeof localStorage === "undefined" || localStorage === null) {
+    var LocalStorage = require('node-localstorage').LocalStorage;
+    localStorage = new LocalStorage('./scratch');
+  }
+localStorage.clear();
 
 const app = express();
 
@@ -22,6 +29,11 @@ app.use((req, res, next) => {
     delete req.session.message
     next()
 })
+
+// const razorpayInstance = new Razorpay({
+//     key_id: 'rzp_test_PqiyhmoPJIXq04', 
+//     key_secret: 'dKpFTEJjqHR9UR2pKS91Oa5K'
+// });
 
 mongoose.connect("mongodb://localhost:27017/hmsDB", {useNewUrlParser: true});
 
@@ -74,7 +86,7 @@ app.post('/signup', (req, res) => {
                     req.session.message = {
                         type: 'success',
                         intro: 'Registration Successful! ',
-                        message: 'Now you can Log in to book rooms.'
+                        message: 'Go to Log in to book rooms.'
                     }
                     res.redirect('/signup');
                 } else {
@@ -99,68 +111,81 @@ app.post('/login', (req, res) => {
     const cEmail = req.body.email;
     const cPassword = req.body.password;
 
-    if (cEmail == '' || cPassword == '') {
-        req.session.message = {
-            type: 'danger',
-            intro: 'Empty Credentials! ',
-            message: 'Please insert the required details.'
-        }
-        res.redirect('/login');
-    } else {
-        Customer.findOne({
-            email: cEmail
-        }, function (err, found) {
-            if (!err) {
-                if (found) {
-                    if (cPassword === found.password) {
-                        req.session.message = {
-                            type: 'success',
-                            intro: 'Succesfully logged in! ',
-                            message: 'Enjoy.'
-                        }
-                        res.redirect('/book');
-                    } else {
-                        req.session.message = {
-                            type: 'warning',
-                            intro: 'You entered Wrong Password! ',
-                            message: 'Enter again.'
-                        }
-                        res.redirect('/login');
-                    }
-
-                } else {
-                    req.session.message = {
-                        type: 'info',
-                        intro: 'You are new user! ',
-                        message: 'Please register first.'
-                    }
-                    res.redirect('/login');
+            if (cEmail == '' || cPassword == '')
+            {
+                req.session.message = {
+                    type: 'danger',
+                    intro: 'Empty Credentials! ',
+                    message: 'Please insert the required details.'
                 }
+                res.redirect('/login');
+            } 
+            
+            else
+            {
+                Customer.findOne({email: cEmail},  function (err, found) {
+                    if (!err) 
+                    {
+                        if (found)
+                        {
+                            
+                            if (cPassword === found.password) {
+                                req.session.message = {
+                                    type: 'success',
+                                    intro: 'Succesfully logged in! ',
+                                    message: 'Enjoy.'
+                                }
+                                res.cookie("userName", cEmail);
+                                res.cookie("name", found.name);
+                                res.redirect('/book')
+                            }
+                            else 
+                            {
+                                req.session.message = {
+                                    type: 'warning',
+                                    intro: 'You entered Wrong Password! ',
+                                    message: 'Enter again.'
+                                }
+                                res.redirect('/login');
+                            }
+                        }
+                        
+                        else
+                        {
+                            req.session.message = {
+                                type: 'info',
+                                intro: 'You are new user! ',
+                                message: 'Please register first.'
+                            }
+                            res.redirect('/login');
+                        }
+                    }
+                })
             }
-        })
-    }
 })
 
 app.get('/book', (req, res) => {
-
+    const uname=req.cookies.userName;
     Room.find({}, function (err, roomDetails) {
         if (err) {
             return handleError(err);
-        } else {
-            res.render('book', {
-                roomDetails: roomDetails
-            });
         }
-    });
-
+        else {
+            res.render('book', { username: uname, roomDetails: roomDetails } );
+        }
 });
+})
 
 app.post('/book', (req, res) => {
     const capacity = req.body.quantity;
+    res.cookie('capacity', capacity);
     const date1 = req.body.checkInDate.toString();
     const date2 = req.body.checkOutDate.toString();
     const d1 = new Date(date1).toISOString();
     const d2 = new Date(date2).toISOString();
+
+    res.cookie("checkIn", d1);
+    res.cookie("checkOut", d2);
     var result = []
 
     Room.find({'capacity': capacity}, 'roomNo price rating capacity orderDetails', function (err, searchResult) {
@@ -170,19 +195,46 @@ app.post('/book', (req, res) => {
             for (var i = 0; i < searchResult.length; i++) {
                 var count = 0;
                 for (var j = 0; j < searchResult[i].orderDetails.length; j++) 
-                    if (!((d1 < searchResult[i].orderDetails[j].checkIn.toISOString() && d2 < searchResult[i].orderDetails[j].checkIn.toISOString()) || (d1 > searchResult[i].orderDetails[j].checkOut.toISOString() && d2 > searchResult[i].orderDetails[j].checkOut.toISOString()))) count += 1;
+                    if (((d1 < searchResult[i].orderDetails[j].checkIn.toISOString() && d2 < searchResult[i].orderDetails[j].checkIn.toISOString()) || (d1 > searchResult[i].orderDetails[j].checkOut.toISOString() && d2 > searchResult[i].orderDetails[j].checkOut.toISOString()))) count += 1;
                 
                 if (count != 0)
                     result.push({roomNo: searchResult[i].roomNo, price: searchResult[i].price, rating: searchResult[i].rating, capacity: searchResult[i].capacity});
                 }}
-    console.log(result);
-    res.render('search', {result: result});
+                res.cookie("searchResult", result);
+                res.redirect('/search');
     })
 })
 
 app.get('/search', (req, res) => {
-    var def = []
+    var def =req.cookies.searchResult;
     res.render('search', {result: def});
+    
+})
+
+app.post('/search', (req, res)=>{
+    const roomNum = req.body.roomNo;
+    res.cookie("roomNo", roomNum);
+    console.log(req.cookies);
+    res.redirect('/bill');
+})
+
+app.get('/bill', (req, res)=>{
+    const un=req.cookies.userName;
+    const rn=req.cookies.roomNo;
+    const arr=[];
+    var amt=0;
+
+    for (var i=0; i<req.cookies.searchResult.length; i++)
+    {
+        console.log()
+            if (req.cookies.searchResult[i].roomNo, parseInt(req.cookies.roomNo))
+            {
+                
+                amt=req.cookies.searchResult[i].price;
+            }
+    }
+    
+    res.render('bill', {name: req.cookies.name, uName: req.cookies.userName, rn: req.cookies.roomNo, guestCount: req.cookies.capacity, price: amt, cin: new Date(req.cookies.checkIn), cout: new Date(req.cookies.checkOut)});
 })
 
 app.listen(process.env.PORT || 3000);
