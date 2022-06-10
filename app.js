@@ -1,18 +1,13 @@
 const express = require("express");
 const bodyParser = require("body-parser");
+const dotenv = require('dotenv');
 const mongoose = require("mongoose");
 const cookieParser = require('cookie-parser')
 const session = require('express-session')
-//const Razorpay = require('razorpay');
-
-if (typeof localStorage === "undefined" || localStorage === null) {
-    var LocalStorage = require('node-localstorage').LocalStorage;
-    localStorage = new LocalStorage('./scratch');
-  }
-localStorage.clear();
+const Razorpay = require('razorpay');
 
 const app = express();
-
+dotenv.config();
 app.set("view engine", "ejs");
 app.use(bodyParser.urlencoded({extended: false}));
 app.use(express.static("public"));
@@ -30,10 +25,10 @@ app.use((req, res, next) => {
     next()
 })
 
-// const razorpayInstance = new Razorpay({
-//     key_id: 'rzp_test_PqiyhmoPJIXq04', 
-//     key_secret: 'dKpFTEJjqHR9UR2pKS91Oa5K'
-// });
+var instance = new Razorpay({
+    key_id: process.env.KEY_ID,
+    key_secret: process.env.KEY_SECRET,
+});
 
 mongoose.connect("mongodb://localhost:27017/hmsDB", {useNewUrlParser: true});
 
@@ -183,26 +178,41 @@ app.post('/book', (req, res) => {
     const date2 = req.body.checkOutDate.toString();
     const d1 = new Date(date1).toISOString();
     const d2 = new Date(date2).toISOString();
+    const currentDate = new Date().toISOString();
 
-    res.cookie("checkIn", d1);
-    res.cookie("checkOut", d2);
-    var result = []
+    if (d1 < currentDate || d2 < currentDate)
+    {
+        req.session.message = {
+            type: 'danger',
+            intro: 'Wrong Date Credentials! ',
+            message: 'Try again.'
+        }
+        res.redirect('/book');
+    }
+    else 
+    {
+        res.cookie("checkIn", d1);
+        res.cookie("checkOut", d2);
+        var result = []
 
-    Room.find({'capacity': capacity}, 'roomNo price rating capacity orderDetails', function (err, searchResult) {
-        if (err)
-            return handleError(err);
-        else {
-            for (var i = 0; i < searchResult.length; i++) {
-                var count = 0;
-                for (var j = 0; j < searchResult[i].orderDetails.length; j++) 
-                    if (((d1 < searchResult[i].orderDetails[j].checkIn.toISOString() && d2 < searchResult[i].orderDetails[j].checkIn.toISOString()) || (d1 > searchResult[i].orderDetails[j].checkOut.toISOString() && d2 > searchResult[i].orderDetails[j].checkOut.toISOString()))) count += 1;
-                
-                if (count != 0)
-                    result.push({roomNo: searchResult[i].roomNo, price: searchResult[i].price, rating: searchResult[i].rating, capacity: searchResult[i].capacity});
-                }}
-                res.cookie("searchResult", result);
-                res.redirect('/search');
-    })
+        Room.find({'capacity': capacity}, 'roomNo price rating capacity orderDetails', function (err, searchResult) {
+            if (err)
+                return handleError(err);
+            else {
+                for (var i = 0; i < searchResult.length; i++) {
+                    var count = 0;
+                    for (var j = 0; j < searchResult[i].orderDetails.length; j++) 
+                        if (((d1 < searchResult[i].orderDetails[j].checkIn.toISOString() && d2 < searchResult[i].orderDetails[j].checkIn.toISOString()) || (d1 > searchResult[i].orderDetails[j].checkOut.toISOString() && d2 > searchResult[i].orderDetails[j].checkOut.toISOString()))) count += 1;
+                    
+                    if (count != 0)
+                        result.push({roomNo: searchResult[i].roomNo, price: searchResult[i].price, rating: searchResult[i].rating, capacity: searchResult[i].capacity});
+                    }}
+                    res.cookie("searchResult", result);
+                    res.redirect('/search');
+        })
+    }
+
+    
 })
 
 app.get('/search', (req, res) => {
@@ -214,7 +224,7 @@ app.get('/search', (req, res) => {
 app.post('/search', (req, res)=>{
     const roomNum = req.body.roomNo;
     res.cookie("roomNo", roomNum);
-    console.log(req.cookies);
+    //console.log(req.cookies);
     res.redirect('/bill');
 })
 
@@ -234,7 +244,37 @@ app.get('/bill', (req, res)=>{
             }
     }
     
-    res.render('bill', {name: req.cookies.name, uName: req.cookies.userName, rn: req.cookies.roomNo, guestCount: req.cookies.capacity, price: amt, cin: new Date(req.cookies.checkIn), cout: new Date(req.cookies.checkOut)});
+    res.render('bill', {name: req.cookies.name, uName: req.cookies.userName, rn: req.cookies.roomNo, guestCount: req.cookies.capacity, price: amt, cin: new Date(req.cookies.checkIn), cout: new Date(req.cookies.checkOut), k1: process.env.KEY_ID, k2: process.env.KEY_SECRET});
 })
+
+app.post('/create/orderId', (req, res) => {
+    //console.log("create orderId request ", req.body);
+    var options = {
+        amount: req.body.amount,
+        currency: "INR",
+        receipt: "rcp1"
+    };
+    instance.orders.create(options, function (err, order) {
+        //console.log(order);
+        res.send({orderId: order.id});
+    });
+})
+
+app.post("/api/payment/verify", (req, res) => {
+    let body = req.body.response.razorpay_order_id + "|" + req.body.response.razorpay_payment_id;
+    var crypto = require("crypto");
+    var expectedSignature = crypto.createHmac('sha256', process.env.KEY_SECRET).update(body.toString()).digest('hex');
+    console.log("sig received ", req.body.response.razorpay_signature);
+    console.log("sig generated ", expectedSignature);
+    var response = {
+        "signatureIsValid": "false"
+    }
+    if (expectedSignature === req.body.response.razorpay_signature) response = {
+        "signatureIsValid": "true"
+    }
+    res.send(response);
+    //console.log("Kaj sesh kaka!!")
+    res.redirect("/");
+});
 
 app.listen(process.env.PORT || 3000);

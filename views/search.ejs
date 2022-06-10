@@ -49,9 +49,9 @@
                                 <p class="card-text">Capacity: <%= result[i].capacity %></p>
                                 <p class="card-text">Price: <%= result[i].price %>/-</p>
                                 <div class="d-flex justify-content-between align-items-center">
-                                    <div class="btn-group">
-                                        <button type="button" class="btn btn-info">Book Now</button>
-                                    </div>
+                                    <!-- <div class="btn-group">
+                                        <button name="r<%= result[i].roomNo %>" class="btn btn-info" type="submit" value="<%= result[i].roomNo %>" onclick="alert(this.value)">Book Now</button>
+                                    </div> -->
                                     <small class="text-muted"><%= result[i].rating %> stars</small>
                                 </div>
                             </div>
@@ -60,10 +60,20 @@
                     <% } %>
                 </div>
                 <% } %>
+
+                <div class="text-center">
+                    <form action="", method="post">
+                        <label for="">Enter the exact room no you want to book:</label><br><br>
+                        <input type="number" name="roomNo" id="roomNo">
+                        <button type="submit" class="btn btn-success btn-sm">Book Now</button>
+                    </form>
+                </div>
+                
             </div>
         </div>
         </div>
     </main>
+
 
     <footer class="text-muted py-5">
         <div class="container">
@@ -84,6 +94,7 @@
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@4.0.0/dist/js/bootstrap.min.js"
         integrity="sha384-JZR6Spejh4U02d8jOt6vLEHfe/JQGiRRSQQxSfFWpi1MquVdAyjUar5+76PVCmYl" crossorigin="anonymous">
     </script>
+    
 </body>
 
 </html>
