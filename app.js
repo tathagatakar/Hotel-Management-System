@@ -2,9 +2,10 @@ const express = require("express");
 const bodyParser = require("body-parser");
 const dotenv = require('dotenv');
 const mongoose = require("mongoose");
+const paypal = require("paypal-rest-sdk");
 const cookieParser = require('cookie-parser')
 const session = require('express-session')
-const Razorpay = require('razorpay');
+const storage = require('node-sessionstorage');
 
 const app = express();
 dotenv.config();
@@ -25,20 +26,22 @@ app.use((req, res, next) => {
     next()
 })
 
-var instance = new Razorpay({
-    key_id: process.env.KEY_ID,
-    key_secret: process.env.KEY_SECRET,
+paypal.configure({
+    mode: "sandbox",
+    client_id: process.env.clientId,
+    client_secret: process.env.secretId,
 });
 
 mongoose.connect("mongodb://localhost:27017/hmsDB", {useNewUrlParser: true});
 
-const customerSchema = {name: String, email: String, password: String};
+const customerSchema = {name: String, email: String, password: String, orderDetails: [{roomNo: Number, price: Number, checkIn: Date, checkOut: Date, dateOfBook: Date}]};
 const Customer = mongoose.model("Customer", customerSchema);
 
-const roomSchema = {roomNo: Number, capacity: Number, price: Number, rating: Number, orderDetails: [{ customerId: String, checkIn: Date, checkOut: Date}]};
+const roomSchema = {roomNo: Number, capacity: Number, price: Number, rating: Number, orderDetails: [{customerId: String, checkIn: Date, checkOut: Date}]};
 const Room = mongoose.model("room", roomSchema);
 
 app.get('/', (req, res) => {
+    req.session.count=0;
     res.render('index');
 })
 
@@ -67,16 +70,10 @@ app.post('/signup', (req, res) => {
         }
         res.redirect('/signup');
     } else {
-        Customer.findOne({
-            email: cEmail
-        }, function (err, found) {
+        Customer.findOne( {email: cEmail}, function (err, found) {
             if (!err) {
                 if (!found) {
-                    const customer = new Customer({
-                        name: cName,
-                        email: cEmail,
-                        password: cPassword
-                    });
+                    const customer = new Customer({ name: cName, email: cEmail, password: cPassword, orderDetails: [] });
                     customer.save();
                     req.session.message = {
                         type: 'success',
@@ -84,13 +81,15 @@ app.post('/signup', (req, res) => {
                         message: 'Go to Log in to book rooms.'
                     }
                     res.redirect('/signup');
-                } else {
+                } 
+                
+                else {
                     req.session.message = {
                         type: 'dark',
                         intro: 'Email already taken! ',
                         message: 'Please Log in.'
                     }
-                    console.log("Email already taken, plz login")
+                    //console.log("Email already taken, plz login")
                     res.redirect('/signup');
                 }
             }
@@ -125,13 +124,9 @@ app.post('/login', (req, res) => {
                         {
                             
                             if (cPassword === found.password) {
-                                req.session.message = {
-                                    type: 'success',
-                                    intro: 'Succesfully logged in! ',
-                                    message: 'Enjoy.'
-                                }
-                                res.cookie("userName", cEmail);
-                                res.cookie("name", found.name);
+                                req.session.userName = cEmail;
+                                req.session.name = found.name;
+                                //console.log(req.session);
                                 res.redirect('/book')
                             }
                             else 
@@ -144,7 +139,6 @@ app.post('/login', (req, res) => {
                                 res.redirect('/login');
                             }
                         }
-                        
                         else
                         {
                             req.session.message = {
@@ -159,8 +153,9 @@ app.post('/login', (req, res) => {
             }
 })
 
+
 app.get('/book', (req, res) => {
-    const uname=req.cookies.userName;
+    const uname=req.session.userName;
     Room.find({}, function (err, roomDetails) {
         if (err) {
             return handleError(err);
@@ -168,12 +163,12 @@ app.get('/book', (req, res) => {
         else {
             res.render('book', { username: uname, roomDetails: roomDetails } );
         }
-});
+    });
 })
 
 app.post('/book', (req, res) => {
     const capacity = req.body.quantity;
-    res.cookie('capacity', capacity);
+    req.session.capacity = capacity;
     const date1 = req.body.checkInDate.toString();
     const date2 = req.body.checkOutDate.toString();
     const d1 = new Date(date1).toISOString();
@@ -189,92 +184,182 @@ app.post('/book', (req, res) => {
         }
         res.redirect('/book');
     }
+
     else 
     {
-        res.cookie("checkIn", d1);
-        res.cookie("checkOut", d2);
+        req.session.checkIn= d1;    
+        req.session.checkOut= d2;
         var result = []
 
         Room.find({'capacity': capacity}, 'roomNo price rating capacity orderDetails', function (err, searchResult) {
             if (err)
                 return handleError(err);
             else {
+                //console.log(searchResult);
                 for (var i = 0; i < searchResult.length; i++) {
                     var count = 0;
                     for (var j = 0; j < searchResult[i].orderDetails.length; j++) 
-                        if (((d1 < searchResult[i].orderDetails[j].checkIn.toISOString() && d2 < searchResult[i].orderDetails[j].checkIn.toISOString()) || (d1 > searchResult[i].orderDetails[j].checkOut.toISOString() && d2 > searchResult[i].orderDetails[j].checkOut.toISOString()))) count += 1;
+                        if (((d1 < searchResult[i].orderDetails[j].checkIn.toISOString() && d2 < searchResult[i].orderDetails[j].checkIn.toISOString()) || (d1 > searchResult[i].orderDetails[j].checkOut.toISOString() && d2 > searchResult[i].orderDetails[j].checkOut.toISOString()))) {count += 1;}
                     
-                    if (count != 0)
+                    if (count === searchResult[i].orderDetails.length)
                         result.push({roomNo: searchResult[i].roomNo, price: searchResult[i].price, rating: searchResult[i].rating, capacity: searchResult[i].capacity});
                     }}
-                    res.cookie("searchResult", result);
+                    req.session.searchResult = result;
                     res.redirect('/search');
         })
     }
-
-    
 })
 
 app.get('/search', (req, res) => {
-    var def =req.cookies.searchResult;
+    var def =req.session.searchResult;
     res.render('search', {result: def});
-    
 })
 
 app.post('/search', (req, res)=>{
     const roomNum = req.body.roomNo;
-    res.cookie("roomNo", roomNum);
-    //console.log(req.cookies);
+    req.session.roomNo = roomNum;
     res.redirect('/bill');
 })
 
 app.get('/bill', (req, res)=>{
-    const un=req.cookies.userName;
-    const rn=req.cookies.roomNo;
-    const arr=[];
+    const un=req.session.userName;
+    const rn=req.session.roomNo;
     var amt=0;
-
-    for (var i=0; i<req.cookies.searchResult.length; i++)
+    for (var i=0; i<req.session.searchResult.length; i++)
     {
-        console.log()
-            if (req.cookies.searchResult[i].roomNo, parseInt(req.cookies.roomNo))
+            if (req.session.searchResult[i].roomNo === parseInt(req.session.roomNo))
             {
                 
-                amt=req.cookies.searchResult[i].price;
+                amt=req.session.searchResult[i].price;
             }
     }
-    
-    res.render('bill', {name: req.cookies.name, uName: req.cookies.userName, rn: req.cookies.roomNo, guestCount: req.cookies.capacity, price: amt, cin: new Date(req.cookies.checkIn), cout: new Date(req.cookies.checkOut), k1: process.env.KEY_ID, k2: process.env.KEY_SECRET});
+    req.session.amount=amt;
+    console.log(req.session);
+    res.render('bill', {name: req.session.name, uName: req.session.userName, rn: req.session.roomNo, guestCount: req.session.capacity, price: amt, cin: new Date(req.session.checkIn), cout: new Date(req.session.checkOut)});
 })
 
-app.post('/create/orderId', (req, res) => {
-    //console.log("create orderId request ", req.body);
-    var options = {
-        amount: req.body.amount,
-        currency: "INR",
-        receipt: "rcp1"
+app.get('/success', (req, res) => {
+    var orderD = {customerId: req.session.userName, checkIn: new Date(req.session.checkIn), checkOut: new Date(req.session.checkOut)};
+
+    Room.updateOne( {roomNo: req.session.roomNo}, {$push: {orderDetails: orderD}}, function (err, found) {
+        if (err) {
+            console.log("error occured in room");
+        } else {
+            console.log("success for rooms");
+        }
+    })
+
+    var custD = {roomNo: req.session.roomNo, price: req.session.amount, checkIn: new Date(req.session.checkIn), checkOut: new Date(req.session.checkOut), dateOfBook: new Date()};
+
+    Customer.updateOne( {email: req.session.userName}, {$push: {orderDetails: custD}}, function (err, found) {
+        if (err) {
+            console.log("error occured in customer");
+        } else {
+            console.log("success for customer");
+        }
+    })
+
+    res.render('success');
+})
+
+app.get('/failure', (req, res) => {
+    res.render('failure');
+})
+
+app.post("/pay", (req, res) => {
+    let txtprice = req.session.amount.toString();
+
+
+    const create_payment_json = {
+        intent: "sale",
+        payer: {
+            payment_method: "paypal",
+        },
+        redirect_urls: {
+            return_url: "http://localhost:3000/success",
+            cancel_url: "http://localhost:3000/cancel",
+        },
+        transactions: [{
+            item_list: {
+                items: [{
+                    name: "Red Sox Hat",
+                    sku: "001",
+                    price: txtprice,
+                    currency: "USD",
+                    quantity: 1,
+                }, ],
+            },
+            amount: {
+                currency: "USD",
+                total: txtprice,
+            },
+            description: "",
+        }, ],
     };
-    instance.orders.create(options, function (err, order) {
-        //console.log(order);
-        res.send({orderId: order.id});
+
+    paypal.payment.create(create_payment_json, function (error, payment) {
+        if (error) {
+            throw error;
+        } else {
+            for (let i = 0; i < payment.links.length; i++) {
+                if (payment.links[i].rel === "approval_url") {
+                    res.redirect(payment.links[i].href);
+                }
+            }
+        }
     });
+});
+
+app.get("/success", (req, res) => {
+    let txtprice = req.session.amount.toString();
+
+    const payerId = req.query.PayerID;
+    const paymentId = req.query.paymentId;
+
+    const execute_payment_json = {
+        payer_id: payerId,
+        transactions: [{
+            amount: {
+                currency: "USD",
+                total: txtprice,
+            },
+        }, ],
+    };
+
+    paypal.payment.execute(paymentId, execute_payment_json, function (
+        error,
+        payment
+    ) {
+        if (error) {
+            console.log(error.response);
+            throw error;
+        } else {
+            res.redirect("/success");
+        }
+    });
+});
+
+app.get('/orders', (req, res)=> {
+    var bookDetails= [];
+    console.log(req.session);
+    Customer.findOne({email: req.session.userName}, 'name orderDetails', function (err, found) {
+        if (!err)
+        {
+            if (found)
+            {
+                console.log(found);
+                for (var i=found.orderDetails.length-1; i>=0; i--)
+                {
+                    bookDetails.push({name: found.name, roomNo: found.orderDetails[i].roomNo, price: found.orderDetails[i].price, checkIn: found.orderDetails[i].checkIn.toISOString(), checkOut: found.orderDetails[i].checkOut.toISOString(), dateOfBook: found.orderDetails[i].dateOfBook.toISOString()});
+                }
+                console.log(bookDetails);
+                res.render('orders', {abc: bookDetails});     
+            }
+        }
+    });
+    
 })
 
-app.post("/api/payment/verify", (req, res) => {
-    let body = req.body.response.razorpay_order_id + "|" + req.body.response.razorpay_payment_id;
-    var crypto = require("crypto");
-    var expectedSignature = crypto.createHmac('sha256', process.env.KEY_SECRET).update(body.toString()).digest('hex');
-    console.log("sig received ", req.body.response.razorpay_signature);
-    console.log("sig generated ", expectedSignature);
-    var response = {
-        "signatureIsValid": "false"
-    }
-    if (expectedSignature === req.body.response.razorpay_signature) response = {
-        "signatureIsValid": "true"
-    }
-    res.send(response);
-    //console.log("Kaj sesh kaka!!")
-    res.redirect("/");
-});
+app.get("/cancel", (req, res) => res.redirect("/failure"));
 
 app.listen(process.env.PORT || 3000);

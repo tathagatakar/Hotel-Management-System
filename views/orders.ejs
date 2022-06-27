@@ -1,0 +1,48 @@
+<html>
+<head>
+<style>
+table {
+  font-family: arial, sans-serif;
+  border-collapse: collapse;
+  width: 100%;
+}
+
+td, th {
+  border: 1px solid #dddddd;
+  text-align: left;
+  padding: 8px;
+}
+
+tr:nth-child(even) {
+  background-color: #dddddd;
+}
+</style>
+</head>
+<body>
+
+<h2>Your Booking History!</h2>
+
+<table>
+  <tr>
+    <th>Name</th>
+    <th>Room No</th>
+    <th>Price</th>
+    <th>CheckIn</th>
+    <th>CheckOut</th>
+    <th>Date of Booking</th>
+  </tr>
+  <% for (var i=0; i<abc.length; i++) { %>
+    <tr>
+        <td><%= abc[i].name %></td>
+        <td><%= abc[i].roomNo %></td>
+        <td><%= abc[i].price %></td>
+        <td><%= abc[i].checkIn %></td>
+        <td><%= abc[i].checkOut %></td>
+        <td><%= abc[i].dateOfBook %></td>
+    </tr>
+    <% } %>
+</table>
+<br>
+<span>Return to your <a href="/book">DashBoard</a></span>
+</body>
+</html>
